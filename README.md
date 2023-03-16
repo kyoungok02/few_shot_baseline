@@ -4,11 +4,11 @@
 ### Environmetal setting
 Set the environment using conda yaml file.     
 ```bash
-conda env create --file conda/few_shot.yaml
+conda env create -n {environment name} -file few_shot.yaml
 ```
 Activate conda enviroment .  
 ```bash
-conda activate few_shot
+conda activate {environment name}
 ```
 
 ### Dataset Download
