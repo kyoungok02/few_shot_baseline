@@ -3,9 +3,13 @@
 ## Installation
 ### Environmetal setting
 Set the environment using conda yaml file.     
-<code> conda env create --file conda/few_shot.yaml </code>   
+```bash
+conda env create --file conda/few_shot.yaml
+```
 Activate conda enviroment .  
-<code> conda activate few_shot </code>.  
+```bash
+conda activate few_shot </code>
+```
 
 ### Dataset Download
 Before running the code, it may be necessary to download the required datasets.  
@@ -14,7 +18,7 @@ The dataset is loaded into the ```./data``` folder.
 
 ## Train
 When using Visual Studio Code, you can utilize the following code in the json.  
-For ProtoNet,
+For ProtoNet, use the ```train_protonet.py```.  
 ```javascript
 {
     // Use IntelliSense to learn about possible attributes.
@@ -38,7 +42,7 @@ For ProtoNet,
     ]
 }
 ```
-For SiameseNet.  
+For SiameseNet, use the ```train_siamese.py```.  
 ```javascript
 {
     // Use IntelliSense to learn about possible attributes.
@@ -61,4 +65,20 @@ For SiameseNet.
         }
     ]
 }
+```
+When you use the terminal, use the following command.  
+For protonet,
+```bash
+cd $base_dir$
+python train_protonet.py --seed=7 --epoch=50 --n_way=5 --k_spt=5 \\ 
+            --k_qry=15 --imgsz=84 --imgc=3 --lr=3e-2 --batch_size=4 --resume=False \\
+            --root_dir=/Users/kyoung-okyang/few_shot/few_shot_baseline_1 --dataset=mini-imagenet \\
+            --model=Baseline
+```
+For SiameseNet,
+```bash
+cd $base_dir$
+python train_siamese.py --epoch=30 --n_way=1 --k_spt=20 --k_qry=20 --imgsz=105 \\
+                        --imgc=3 --batch_size=4 --lr=3e-2 --resume=False \\
+                        --root_dir=/Users/kyoung-okyang/few_shot/few_shot_baseline_1 --dataset=mini-imagenet
 ```
