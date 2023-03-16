@@ -1,4 +1,3 @@
-from    utils.MiniImagenet import *
 import os
 import sys
 from glob import glob
@@ -7,80 +6,97 @@ import numpy as np
 
 import torch
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
+# from tqdm import tqdm
 from torch.utils.data import DataLoader
 import shutil
 import argparse
 
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
-
-from siames import SiameseNet
-from one_cycle_policy import OneCyclePolicy
+from utils.MiniImagenet import *
+from utils.Cifar100FS import *
+from utils.siames import SiameseNet
+from utils.one_cycle_policy import OneCyclePolicy
+from utils.utils import *
 from utils.train_utils import AverageMeter
 from tensorboardX import SummaryWriter
 
-root_dir = "/home/few_shot/few_shot_baseline"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-checkpoint_dir = root_dir + "/checkpoint"
-if not os.path.exists(checkpoint_dir):
-    os.makedirs(checkpoint_dir)
-log_dir = root_dir + "/logs"
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
 
-def save_checkpoint(state, is_best):
-
-    if is_best:
-        filename = './models/best_model.pt'
-    else:
-        filename = f'./models/model_ckpt_{state["epoch"]}.pt'
-
-    model_path = os.path.join(checkpoint_dir, filename)
-    torch.save(state, model_path)
-
-def load_checkpoint(best):
+def load_checkpoint(best, checkpoint_dir):
     print(f"[*] Loading model Num....", end="")
-
     if best:
         model_path = os.path.join(checkpoint_dir, './models/best_model.pt')
     else:
         model_path = sorted(glob(checkpoint_dir + './models/model_ckpt_*.pt'), key=len)[-1]
-
     ckpt = torch.load(model_path)
-
     if best:
         print(
             f"Loaded {os.path.basename(model_path)} checkpoint @ epoch {ckpt['epoch']} with best valid acc of {ckpt['best_valid_acc']:.3f}")
     else:
         print(f"Loaded {os.path.basename(model_path)} checkpoint @ epoch {ckpt['epoch']}")
-
     return ckpt['epoch'], ckpt['best_epoch'], ckpt['best_valid_acc'], ckpt['model_state'], ckpt['optim_state']
 
+def compute_accuracy(y_pred, y_true):
+    y_pred, y_true = y_pred.detach().numpy(), y_true.detach().numpy()
+    pred = y_pred.ravel() < 0.5
+    return np.mean(pred == y_true)
+
+def save_checkpoint(state, path, is_best):
+    filename = '%s/checkpoint.pt' % (path)
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, filename.replace('checkpoint.pt', 'best.pt'))
+
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def main(args):
-
-    torch.manual_seed(222)
-    torch.cuda.manual_seed_all(222)
-    np.random.seed(222)
-
-    epochs = args.epoch    
-    task_name = "{}_{}_{}way_{}shot_{}query_{}epoch".format("network","SiamesNetwork",args.n_way,args.k_spt,args.k_qry,epochs)
+    
+    set_seed(222)
+    epochs = args.epoch  
+    
+    root_dir = args.root_dir
+    # check point directory
+    checkpoint_dir = root_dir + "/checkpoint"
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+    # log directory
+    log_dir = root_dir + "/logs"
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    # project folder name
+    task_name = "{}_{}_{}_{}way_{}shot_{}query_{}epoch".format(args.model, args.dataset,"ProtoNet",args.n_way,args.k_spt,args.k_qry,epochs)
     checkpoint_path = os.path.join(checkpoint_dir,task_name)
     if not os.path.exists(checkpoint_path):
         os.makedirs(checkpoint_path)
 
+    
     # batchsz here means total episode number
-    imagnet_dir = os.path.join(root_dir,"data/mini-imagenet")
     print("start to load dataset")
-    mini = SiamMiniImageNetTrain(imagnet_dir,batchsz=10000,n_way=args.n_way, k_shot=args.k_spt,imsize=args.imgsz)
-    mini_val = SiamMiniImageNetTest(imagnet_dir,split="val",batchsz=100,n_way=args.n_way, k_query=args.k_qry, imsize=args.imgsz)
-    train_db = DataLoader(mini, args.batch_size, shuffle=True, num_workers=0, pin_memory=True)    
-    valid_db = DataLoader(mini_val, 1, shuffle=True, num_workers=0, pin_memory=True)
+    if args.dataset =="mini-imagenet":
+        imagnet_dir = os.path.join(root_dir,"data/mini-imagenet")
+        print(f"Dataset setting : mini-imagenet \n The dataset dir : {imagnet_dir}")
+        train_dataset = MetaMiniImageNet(imagnet_dir,split="train",batchsz=10000,n_way=args.n_way, k_shot=args.k_spt,k_query=args.k_qry, imsize=args.imgsz)
+        valid_dataset= MetaMiniImageNet(imagnet_dir,split="val",batchsz=100,n_way=args.n_way, k_shot=args.k_spt,k_query=args.k_qry, imsize=args.imgsz)
+        train_db = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
+        valid_db = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
+    elif args.dataset == "cifar100":
+        cifar_dir = os.path.join(root_dir,"data/fs_fc100")
+        print(f"Dataset setting : few-shot cifar 100 \n The dataset dir : {cifar_dir}")
+        train_dataset = MetaCifer100FS(cifar_dir,split="train",batchsz=10000,n_way=args.n_way, k_shot=args.k_spt,k_query=args.k_qry, imsize=args.imgsz)
+        valid_dataset= MetaCifer100FS(cifar_dir,split="val",batchsz=100,n_way=args.n_way, k_shot=args.k_spt,k_query=args.k_qry, imsize=args.imgsz)
+        train_db = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
+        valid_db = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True, drop_last=True)
     print("sucess to load dataset")
-
-# Model, Optimizer, criterion
+    # Model, Optimizer, criterion
     model = SiameseNet()
     if args.optimizer == "SGD":
         optimizer = optim.SGD(model.parameters(), lr=args.lr)
@@ -110,9 +126,9 @@ def main(args):
     writer = SummaryWriter(log_dir=os.path.join(log_dir,task_name))
 
     # im1, im2, _ = next(iter(valid_db))
-    # input (Batch, Task num, Channel, H, W)
-    writer.add_graph(model,
-                         [torch.rand((1, 1, 3, 105, 105)).to(device), torch.rand(1, 1, 3, 105, 105).to(device)])
+    # # input (Batch, Task num, Channel, H, W)
+    # writer.add_graph(model,
+    #                      [torch.rand((1, 1, 3, 105, 105)).to(device), torch.rand(1, 1, 3, 105, 105).to(device)])
 
     counter = 0
     num_train = len(train_db)
@@ -120,31 +136,38 @@ def main(args):
     print(
             f"[*] Train on {len(train_db.dataset)} sample pairs, validate on {len(valid_db.dataset)} trials")
 
-        # Train & Validation
-    main_pbar = tqdm(range(start_epoch, args.epoch), initial=start_epoch, position=0,
-                         total=args.epoch, desc="Process")
+    # Train & Validation
     print("Start to train")
-    for epoch in main_pbar:
+    # tqdm 사용시
+    # main_pbar = tqdm(range(start_epoch, args.epoch), initial=start_epoch, position=0,
+                        #  total=args.epoch, desc="Process")
+    # for epoch in main_pbar:
+    for epoch in range(args.epoch):
         train_losses = AverageMeter()
         valid_losses = AverageMeter()
 
         # TRAIN
         model.train()
-        train_pbar = tqdm(enumerate(train_db),total=num_train, desc="Train", position=1, leave=False)
-        for i, (x1, x2, y) in train_pbar:
+        # train_pbar = tqdm(enumerate(train_db),total=num_train, desc="Train", position=1, leave=False)
+        # for i, (x1, x2, y) in train_pbar:
+        correct_sum = 0
+
+        for i, (x1, x2, y) in enumerate(train_db):
+            # x1, x2, y = x1.unsqueeze(0), x2.to(device).unsqueeze(0), y.unsqueeze(0)
             x1, x2, y = x1.to(device), x2.to(device), y.to(device)
             out = model(x1, x2)
             # loss = criterion(out, y.unsqueeze(1))
             loss = criterion(out, y)
-
-            # compute gradients and update
-            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-
-            train_pbar.set_postfix_str(f"loss: {train_losses.val:0.3f}")
+            
+            # print the result
             train_losses.update(loss.item(), x1.shape[0])
+            acc = compute_accuracy(out,y)
+            print(f"step: {i+1}, loss: {train_losses.val:0.3f}, acc : {acc}")
+            
+            # compute gradients and update
+            optimizer.zero_grad()
 
             # log loss
             writer.add_scalar("Loss/Train", train_losses.val, epoch * len(train_db) + i)
@@ -154,34 +177,35 @@ def main(args):
         if epoch % 3 == 0:
 
             model.eval()
-            correct_sum = 0
-            valid_pbar = tqdm(enumerate(valid_db), total=num_valid, desc="Valid", position=1, leave=False)
+            val_acc = 0.0
+            # tqdm 사용시
+            # valid_pbar = tqdm(enumerate(valid_db), total=num_valid, desc="Valid", position=1, leave=False)
             with torch.no_grad():
-                for i, (x1, x2, y) in valid_pbar:
+                # for i, (x1, x2, y) in valid_pbar:
+                for i, (x1, x2, y) in enumerate(valid_db):
+                    # x1, x2, y = x1.unsqueeze(0), x2.unsqueeze(0), y.unsqueeze(0)                    
                     x1, x2, y = x1.to(device), x2.to(device), y.to(device)
 
                     # compute log probabilities
                     out = model(x1, x2)
                     loss = criterion(out, y)
                     # loss = criterion(out, y.unsqueeze(1))
-
-                    y_pred = torch.sigmoid(out)
-                    y_pred = torch.argmax(y_pred)
-                    if y_pred == 0:
-                        correct_sum += 1
+                    acc = compute_accuracy(out,y)
+                    val_acc += acc
 
             valid_losses.update(loss.item(), x1.shape[0])
 
-                    # compute acc and log
-            valid_acc = correct_sum / num_valid
+            # compute acc and log
+            # tqdm 사용시
+            # valid_pbar.set_postfix_str(f"accuracy: {valid_acc:0.3f}")
             writer.add_scalar("Loss/Valid", valid_losses.val, epoch * len(valid_db) + i)
-            valid_pbar.set_postfix_str(f"accuracy: {valid_acc:0.3f}")
-            writer.add_scalar("Acc/Valid", valid_acc, epoch)
+            print(f"accuracy: {(val_acc/len(valid_db)):0.3f}")
+            writer.add_scalar("Acc/Valid", val_acc/len(valid_db), epoch)
 
             # check for improvement
-            if valid_acc >= best_valid_acc:
+            if (val_acc/len(valid_db)) >= best_valid_acc:
                 is_best = True
-                best_valid_acc = valid_acc
+                best_valid_acc = (val_acc/len(valid_db))
                 best_epoch = epoch
                 counter = 0
             else:
@@ -199,30 +223,18 @@ def main(args):
                         'best_epoch': best_epoch,
                 }, checkpoint_path, is_best
             )
-
-        main_pbar.set_postfix_str(f"best acc: {best_valid_acc:.3f} best epoch: {best_epoch} ")
-
-        tqdm.write(
+        #tqdm 사용시
+        # main_pbar.set_postfix_str(f"best acc: {best_valid_acc:.3f} best epoch: {best_epoch} ")
+        # tqdm.write(
+        #         f"[{epoch}] train loss: {train_losses.avg:.3f} - valid loss: {valid_losses.avg:.3f} - valid acc: {valid_acc:.3f} {'[BEST]' if is_best else ''}")
+        print(f"best acc: {best_valid_acc:.3f} best epoch: {best_epoch} ")
+        print(
                 f"[{epoch}] train loss: {train_losses.avg:.3f} - valid loss: {valid_losses.avg:.3f} - valid acc: {valid_acc:.3f} {'[BEST]' if is_best else ''}")
 
     # release resources
     writer.close()
 
-def save_checkpoint(state, path, is_best):
-    filename = '%s/checkpoint.pt' % (path)
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, filename.replace('checkpoint.pt', 'best.pt'))
 
-def str2bool(v):
-    if isinstance(v, bool):
-       return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == '__main__':
 
@@ -237,6 +249,10 @@ if __name__ == '__main__':
     argparser.add_argument('--lr', type=float, help='meta-level outer learning rate', default=1e-3)
     argparser.add_argument('--resume', type=str2bool, help='reuse the best checkpoint', default=False)
     argparser.add_argument('--optimizer', type=str, help='set the optimizer', default="ADAM")
+    # configuratioin
+    argparser.add_argument('--root_dir', type=str, help='main project directory path', default="/Users/kyoung-okyang/few_shot/few_shot_baseline")
+    argparser.add_argument('--dataset', type=str, help='set the dataset', default='mini-imagenet')
+    # argparser.add_argument('--model', type=str, help='baseline model', default='Baseline')
 
     args = argparser.parse_args()
 
