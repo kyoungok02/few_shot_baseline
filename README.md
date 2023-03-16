@@ -11,3 +11,30 @@ Activate conda enviroment .
 Before running the code, it may be necessary to download the required datasets.  
 The few shot datasets come from the link https://lyy.mpi-inf.mpg.de/mtl/download/.  
 The dataset is loaded into the ```./data``` folder.  
+
+## Train
+When using Visual Studio Code, you can utilize the following code in the json.  
+For ProtoNet,
+'''javascript
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    // protoNet
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["--seed=7","--epoch=50", "--n_way=5", "--k_spt=5", 
+            "--k_qry=15", "--imgsz=84", "--imgc=3","--lr=3e-2", "--batch_size=4","--resume=False",
+            "--root_dir", "/Users/kyoung-okyang/few_shot/few_shot_baseline", "--dataset","mini-imagenet",
+            "--model","Baseline"]
+            // imgsz = 84 for protoNet imgsz=105 for ResNet
+        }
+    ]
+}
+'''
