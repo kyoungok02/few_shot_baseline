@@ -2,9 +2,12 @@
 
 ## Installation
 ### Environmetal setting
-환경 세팅은 Anaconda를 사용하여 세팅   
+Set the environment using conda yaml file.     
 <code> conda env create --file conda/few_shot.yaml </code>   
-conda 환경 activate
-<code> source activate few_shot </code>
+Activate conda enviroment .  
+<code> conda activate few_shot </code>.  
+
 ### Dataset Download
-The few shot datasets come from the link https://lyy.mpi-inf.mpg.de/mtl/download/.
+Before running the code, it may be necessary to download the required datasets.  
+The few shot datasets come from the link https://lyy.mpi-inf.mpg.de/mtl/download/.  
+The dataset is loaded into the ```./data``` folder.  
