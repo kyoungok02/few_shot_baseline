@@ -5,3 +5,8 @@ from utils.utils import *
 from utils.resnet import *
 from utils.Models import *
 from utils.train_utils import *
+from utils.Cifar100FS import *
+from utils.one_cycle_policy import *
+from utils.protonet import *
+from utils.prototypical_loss import *
+from utils.siames import *

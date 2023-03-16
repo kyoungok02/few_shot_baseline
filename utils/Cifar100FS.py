@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 # root_dir = "/home/few_shot/few_shot_baseline"
 root_dir = "/Users/kyoung-okyang/few_shot/few_shot_baseline"
 
-class MiniImageNet(Dataset):
+class Cifer100FS(Dataset):
     def __init__(self, data_dir, split='train'):
         self.data_dir = data_dir
         self.split = split
@@ -59,7 +59,7 @@ class MiniImageNet(Dataset):
     def __len__(self):
         return len(self.images)
 
-class MetaMiniImageNet(MiniImageNet):
+class MetaCifer100FS(Cifer100FS):
     def __init__(self, data_dir, split='train', batchsz=8, n_way=5, k_shot=5, k_query=15, imsize=38):
         self.data_dir = data_dir
         self.n_way = n_way
@@ -162,7 +162,7 @@ class MetaMiniImageNet(MiniImageNet):
         # as we have built up to batchsz of sets, you can sample some small batch size of sets.
         return self.batchsz
 
-class SiamMiniImageNetTrain(MiniImageNet):
+class SiamCifar100Train(Cifer100FS):
     def __init__(self, data_dir, batchsz=8, n_way=5, k_shot=5,imsize=38):
         self.data_dir = data_dir
         self.n_way = n_way
@@ -185,6 +185,12 @@ class SiamMiniImageNetTrain(MiniImageNet):
         self.create_batch(self.batchsz)
 
     def create_batch(self, meta_iterations):
+        """
+        create batch for meta-learning.
+        ×episode× here means batch, and it means how many sets we want to retain.
+        :param episodes: batch size
+        :return:
+        """
         self.x1_batch = []  # support set batch
         self.x2_batch = []  # query set batch
         self.labels_batch = []
@@ -259,7 +265,7 @@ class SiamMiniImageNetTrain(MiniImageNet):
         # as we have built up to batchsz of sets, you can sample some small batch size of sets.
         return self.batchsz
 
-class SiamMiniImageNetTest(MiniImageNet):
+class SiamCifar100Test(Cifer100FS):
     def __init__(self, data_dir, split = "val", batchsz=8, n_way=5, k_query=15, imsize=38):
         self.data_dir = data_dir
         self.n_way = n_way
@@ -362,38 +368,3 @@ class SiamMiniImageNetTest(MiniImageNet):
     def __len__(self):
         # as we have built up to batchsz of sets, you can sample some small batch size of sets.
         return self.batchsz
-
-if __name__ == '__main__':
-    # the following episode is to view one set of images via tensorboard.
-    from torchvision.utils import make_grid
-    from matplotlib import pyplot as plt
-    from tensorboardX import SummaryWriter
-    import time
-
-    plt.ion()
-
-    tb = SummaryWriter('runs', 'mini-imagenet')
-    imagnet_dir = os.path.join(root_dir,"data/mini-imagenet")
-    train_dataset = MetaMiniImageNet(imagnet_dir,split="train",batchsz=1000,n_way=5, k_shot=5,k_query=15, imsize=168)
-    # dl_train = DataLoader(train_dataset,batch_size=4)
-    for i, set_ in enumerate(train_dataset):
-        # support_x: [k_shot*n_way, 3, 84, 84]
-        support_x, support_y, query_x, query_y = set_
-
-        support_x = make_grid(support_x, nrow=2)
-        query_x = make_grid(query_x, nrow=2)
-
-        plt.figure(1)
-        plt.imshow(support_x.transpose(2, 0).numpy())
-        plt.pause(0.5)
-        plt.figure(2)
-        plt.imshow(query_x.transpose(2, 0).numpy())
-        plt.pause(0.5)
-
-        tb.add_image('support_x', support_x)
-        tb.add_image('query_x', query_x)
-
-        time.sleep(5)
-
-    tb.close() 
-    
