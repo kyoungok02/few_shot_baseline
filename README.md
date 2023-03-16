@@ -31,8 +31,8 @@ For ProtoNet,
             "console": "integratedTerminal",
             "args": ["--seed=7","--epoch=50", "--n_way=5", "--k_spt=5", 
             "--k_qry=15", "--imgsz=84", "--imgc=3","--lr=3e-2", "--batch_size=4","--resume=False",
-            "--root_dir", "/Users/kyoung-okyang/few_shot/few_shot_baseline", "--dataset","mini-imagenet",
-            "--model","Baseline"]
+            "--root_dir=/Users/kyoung-okyang/few_shot/few_shot_baseline_1", "--dataset=mini-imagenet",
+            "--model=Baseline"]
             // imgsz = 84 for protoNet imgsz=105 for ResNet
         }
     ]
@@ -55,8 +55,8 @@ For SiameseNet.
             "console": "integratedTerminal",
              "args": ["--epoch=30", "--n_way=1", "--k_spt=20", 
                  "--k_qry=20", "--imgsz=105", "--imgc=3", "--batch_size=4", "--lr=3e-2", "--resume=False",
-                 "--root_dir", "/Users/kyoung-okyang/few_shot/few_shot_baseline", "--dataset","mini-imagenet",
-                 "--model","Baseline"]
+                    "--root_dir=/Users/kyoung-okyang/few_shot/few_shot_baseline_1", "--dataset=mini-imagenet",
+                    "--model=Baseline"]
                 // imgsz = 84 for protoNet imgsz=105 for ResNet
         }
     ]
