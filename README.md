@@ -8,7 +8,7 @@ conda env create --file conda/few_shot.yaml
 ```
 Activate conda enviroment .  
 ```bash
-conda activate few_shot </code>
+conda activate few_shot
 ```
 
 ### Dataset Download
